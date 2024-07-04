@@ -1,0 +1,52 @@
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationOperation;
+import org.springframework.data.mongodb.core.aggregation.AggregationOptions;
+import org.springframework.data.mongodb.core.aggregation.Fields;
+import org.springframework.data.mongodb.core.aggregation.MatchOperation;
+import org.springframework.data.mongodb.core.aggregation.ProjectionOperation;
+import org.springframework.data.mongodb.core.aggregation.SortOperation;
+import org.springframework.data.mongodb.core.aggregation.SwitchCase;
+import org.springframework.data.mongodb.core.aggregation.SwitchWhen;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+@Service
+public class AggregationService {
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
+
+    public void performAggregation() {
+        List<AggregationOperation> operations = new ArrayList<>();
+
+        // Add fields operation
+        ProjectionOperation addFieldsOperation = Aggregation.project()
+                .andExpression("{$switch: {branches: ["
+                        + "{\"case\": {$eq: ['$priority', 'high']}, then: 3}, "
+                        + "{\"case\": {$eq: ['$priority', 'medium']}, then: 2}, "
+                        + "{\"case\": {$eq: ['$priority', 'low']}, then: 1}], "
+                        + "default: 0}}")
+                .as("sortPriority")
+                .andExclude("_id");
+
+        operations.add(addFieldsOperation);
+
+        // Sort operation
+        operations.add(Aggregation.sort(SortOperation.Order.desc("sortPriority")));
+
+        // Create the aggregation object with the defined operations
+        Aggregation agg = Aggregation.newAggregation(operations);
+
+        // Execute the aggregation and retrieve the results
+        List<?> results = mongoTemplate.aggregate(agg, "your_collection_name", YourEntityClass.class).getMappedResults();
+        for (Object result : results) {
+            System.out.println(result);
+        }
+    }
+}
